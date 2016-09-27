@@ -45,6 +45,7 @@ public class Builder {
 	private boolean useTitle;
 	private boolean useFootnote;
 	private boolean skipIncrement;
+	private boolean skipCompress;
 	private Options options;
 	private File projectDir;
 	private int buildNumber;
@@ -63,6 +64,7 @@ public class Builder {
 	public static final String ARG_TITLE = "title";
 	public static final String ARG_FOOTNOTE = "footnote";
 	public static final String ARG_SKIP_INCREMENT = "noincrement";
+	public static final String ARG_SKIP_COMPRESS = "nocompress";
 	public static final String CLI_PROGRAM_NAME = "papaya-builder";
 	public static final String OUTPUT_DIR = "build";
 	public static final String OUTPUT_JS_FILENAME = "papaya.js";
@@ -117,6 +119,7 @@ public class Builder {
 		builder.setUseTitle(cli.hasOption(ARG_TITLE));
 		builder.setUseFootnote(cli.hasOption(ARG_FOOTNOTE));
 		builder.setSkipIncrement(cli.hasOption(ARG_SKIP_INCREMENT));
+		builder.setSkipCompress(cli.hasOption(ARG_SKIP_COMPRESS));
 
 		// print help, if necessary
 		if (builder.isPrintHelp()) {
@@ -341,9 +344,13 @@ public class Builder {
 			// compress JS
 			tempFileJs = builder.concatenateFiles(builder.getJavaScriptFiles(), "js", tempFileJs);
 
-			System.out.println("Compressing JavaScript... ");
-			FileUtils.writeStringToFile(compressedFileJs, "\n", "UTF-8", true);
-			builder.compressJavaScript(tempFileJs, compressedFileJs, new YuiCompressorOptions());
+			if (builder.isSkipCompress()) {
+				FileUtils.copyFile(tempFileJs, compressedFileJs);
+			} else {
+				System.out.println("Compressing JavaScript... ");
+				FileUtils.writeStringToFile(compressedFileJs, "\n", "UTF-8", true);
+				builder.compressJavaScript(tempFileJs, compressedFileJs, new YuiCompressorOptions());
+			}
 			tempFileJs.deleteOnExit();
 		} catch (final IOException ex) {
 			System.err.println("Problem concatenating JavaScript.  Reason: " + ex.getMessage());
@@ -354,8 +361,12 @@ public class Builder {
 
 		try {
 			final File concatFile = builder.concatenateFiles(CSS_FILES, "css", null);
-			System.out.println("Compressing CSS... ");
-			builder.compressCSS(concatFile, compressedFileCss, new YuiCompressorOptions());
+			if (builder.isSkipCompress()) {
+				FileUtils.copyFile(concatFile, compressedFileCss);
+			} else {
+				System.out.println("Compressing CSS... ");
+				builder.compressCSS(concatFile, compressedFileCss, new YuiCompressorOptions());
+			}
 			concatFile.deleteOnExit();
 		} catch (final IOException ex) {
 			System.err.println("Problem concatenating CSS.  Reason: " + ex.getMessage());
@@ -394,6 +405,7 @@ public class Builder {
 		options.addOption(OptionBuilder.withArgName("text").hasArg().withDescription("add a title").create(ARG_TITLE));
 		options.addOption(OptionBuilder.withArgName("text").hasArg().withDescription("add a footnote").create(ARG_FOOTNOTE));
 		options.addOption(new Option(ARG_SKIP_INCREMENT, "do not increment build number"));
+		options.addOption(new Option(ARG_SKIP_COMPRESS, "do not compress js code"));
 
 		final CommandLineParser parser = new BasicParser();
 		CommandLine line = null;
@@ -824,5 +836,17 @@ public class Builder {
 
 	public void setSkipIncrement(final boolean skipIncrement) {
 		this.skipIncrement = skipIncrement;
+	}
+
+
+
+	public boolean isSkipCompress() {
+		return skipCompress;
+	}
+
+
+
+	public void setSkipCompress(final boolean skipCompress) {
+		this.skipCompress = skipCompress;
 	}
 }
